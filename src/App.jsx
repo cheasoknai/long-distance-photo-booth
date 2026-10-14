@@ -178,6 +178,30 @@ async function copyText(text, inputEl) {
   return false;
 }
 
+// STUN alone connects most home Wi-Fi networks. Phones on mobile data and strict
+// networks usually also need a TURN relay. Add a free one by setting these two
+// variables in Vercel (or a .env file): VITE_METERED_APP and VITE_METERED_API_KEY.
+const STUN = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+];
+
+async function loadIceServers() {
+  const app = import.meta.env.VITE_METERED_APP;
+  const key = import.meta.env.VITE_METERED_API_KEY;
+  if (!app || !key) return STUN;
+  try {
+    const res = await fetch(
+      `https://${app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(key)}`,
+    );
+    if (!res.ok) throw new Error(String(res.status));
+    const list = await res.json();
+    return Array.isArray(list) && list.length ? [...STUN, ...list] : STUN;
+  } catch {
+    return STUN;
+  }
+}
+
 function srcSize(el) {
   if (!el) return [0, 0];
   if (el.videoWidth) return [el.videoWidth, el.videoHeight];
@@ -635,27 +659,91 @@ function SelfFeed({ source, stream, onEl }) {
 }
 
 // The partner's live video, received over WebRTC.
-function RemoteFeed({ stream, onEl }) {
+function RemoteFeed({ stream, onEl, iceState }) {
   const ref = useRef(null);
+  const [frames, setFrames] = useState(false); // true once real video frames arrive
+  const [blocked, setBlocked] = useState(false); // the browser refused to autoplay
+
+  const play = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const p = el.play();
+    if (p && p.catch) {
+      p.catch((e) => {
+        if (e && e.name === "NotAllowedError") setBlocked(true);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
+    setFrames(false);
+    setBlocked(false);
     el.srcObject = stream;
-    const p = el.play();
-    if (p && p.catch) p.catch(() => {});
+    const onFrame = () => {
+      if (el.videoWidth > 0) {
+        setFrames(true);
+        setBlocked(false);
+      }
+    };
+    play();
+    el.addEventListener("loadedmetadata", play);
+    el.addEventListener("loadeddata", onFrame);
+    el.addEventListener("playing", onFrame);
+    el.addEventListener("resize", onFrame);
+    stream.addEventListener("addtrack", play);
+    const poll = setInterval(onFrame, 500);
     onEl(el);
-    return () => onEl(null);
-  }, [stream, onEl]);
+    return () => {
+      clearInterval(poll);
+      el.removeEventListener("loadedmetadata", play);
+      el.removeEventListener("loadeddata", onFrame);
+      el.removeEventListener("playing", onFrame);
+      el.removeEventListener("resize", onFrame);
+      stream.removeEventListener("addtrack", play);
+      onEl(null);
+    };
+  }, [stream, onEl, play]);
+
+  const failed = iceState === "failed";
 
   return (
-    <video
-      ref={ref}
-      autoPlay
-      muted
-      playsInline
-      className="absolute inset-0 w-full h-full object-cover"
-    />
+    <>
+      <video
+        ref={ref}
+        autoPlay
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      {!frames && (
+        <div
+          className="absolute inset-0 grid place-items-center p-6 text-center"
+          style={{ background: "var(--ink2)" }}
+        >
+          <div>
+            <div className="font-display font-bold text-lg">
+              {failed ? "Video is blocked" : "Connecting video…"}
+            </div>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              {failed
+                ? "The two networks will not link directly. Try both devices on the same Wi-Fi, or switch networks."
+                : "This can take a few seconds."}
+            </p>
+            {blocked && (
+              <button
+                type="button"
+                className="btn btn-primary mt-3"
+                onClick={play}
+              >
+                Tap to show video
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -765,6 +853,7 @@ export default function App() {
   const [peerMsg, setPeerMsg] = useState("");
   const [remoteStream, setRemoteStream] = useState(null);
   const [remoteName, setRemoteName] = useState("");
+  const [iceState, setIceState] = useState("");
 
   const streamRef = useRef(null);
   const selfElRef = useRef(null);
@@ -804,6 +893,8 @@ export default function App() {
   phaseRef.current = phase;
   runningRef.current = running;
   nameRef.current = name.trim();
+  const camRef = useRef(cam);
+  camRef.current = cam;
 
   const say = useCallback((t) => {
     setToast(t);
@@ -948,6 +1039,12 @@ export default function App() {
     return blankStream();
   };
 
+  // Wait (briefly) for the camera prompt to finish so we send real video, not a placeholder.
+  const waitForCamera = async () => {
+    for (let i = 0; i < 24 && camRef.current === "requesting"; i++)
+      await sleep(250);
+  };
+
   useEffect(() => {
     if (!roomSession) return undefined;
     const { code, mode: role } = roomSession;
@@ -955,19 +1052,20 @@ export default function App() {
     const hostId = `ldpb-${code.toLowerCase()}`;
     let closed = false;
     let failed = false;
+    let peer = null;
 
     setConn(host ? "waiting" : "connecting");
     setPeerMsg("");
+    setIceState("");
     setRemoteStream(null);
     setRemoteName("");
-
-    const peer = host ? new Peer(hostId) : new Peer();
 
     const lost = () => {
       if (closed || failed) return;
       dataRef.current = null;
       mediaRef.current = null;
       setRemoteStream(null);
+      setIceState("");
       setConn(host ? "waiting" : "closed");
       say("Your partner left the booth.");
     };
@@ -1009,6 +1107,13 @@ export default function App() {
 
     const wireCall = (call) => {
       mediaRef.current = call;
+      const pc = call.peerConnection;
+      if (pc) {
+        setIceState(pc.iceConnectionState);
+        pc.addEventListener("iceconnectionstatechange", () => {
+          if (!closed) setIceState(pc.iceConnectionState);
+        });
+      }
       call.on("stream", (rs) => {
         if (closed) return;
         setRemoteStream(rs);
@@ -1018,82 +1123,98 @@ export default function App() {
       call.on("error", lost);
     };
 
-    peer.on("open", () => {
-      if (closed || host) return;
-      wireData(peer.connect(hostId, { reliable: true }));
-      wireCall(peer.call(hostId, getLocalStream()));
-    });
-
-    peer.on("connection", (dc) => {
-      if (dataRef.current && dataRef.current.open) {
-        dc.on("open", () => {
-          try {
-            dc.send({ t: "busy" });
-          } catch {
-            /* ignore */
-          }
-          setTimeout(() => dc.close(), 300);
-        });
-        return;
-      }
-      wireData(dc);
-    });
-
-    peer.on("call", (call) => {
-      if (mediaRef.current) {
-        call.close();
-        return;
-      }
-      call.answer(getLocalStream());
-      wireCall(call);
-    });
-
-    peer.on("disconnected", () => {
+    const start = async () => {
+      const iceServers = await loadIceServers();
       if (closed) return;
-      try {
-        peer.reconnect();
-      } catch {
-        /* ignore */
-      }
-    });
+      peer = host
+        ? new Peer(hostId, { config: { iceServers } })
+        : new Peer(undefined, { config: { iceServers } });
 
-    peer.on("error", (err) => {
-      if (closed) return;
-      const type = err && err.type;
-      failed = true;
-      setConn("error");
-      if (type === "peer-unavailable") {
-        setPeerMsg(
-          "Room not found. Check the code, and ask your partner to open the booth first.",
-        );
-      } else if (type === "unavailable-id") {
-        setPeerMsg(
-          "That room code is already in use. Go to Room settings and tap New code.",
-        );
-      } else if (
-        ["network", "server-error", "socket-error", "socket-closed"].includes(
-          type,
-        )
-      ) {
-        setPeerMsg(
-          "Could not reach the connection service. Check your internet and try again.",
-        );
-      } else {
-        setPeerMsg(
-          `Connection problem: ${(err && err.message) || type || "unknown error"}`,
-        );
-      }
-    });
+      peer.on("open", async () => {
+        if (closed || host) return;
+        wireData(peer.connect(hostId, { reliable: true }));
+        await waitForCamera();
+        if (closed) return;
+        wireCall(peer.call(hostId, getLocalStream()));
+      });
+
+      peer.on("connection", (dc) => {
+        if (dataRef.current && dataRef.current.open) {
+          dc.on("open", () => {
+            try {
+              dc.send({ t: "busy" });
+            } catch {
+              /* ignore */
+            }
+            setTimeout(() => dc.close(), 300);
+          });
+          return;
+        }
+        wireData(dc);
+      });
+
+      peer.on("call", async (call) => {
+        if (mediaRef.current) {
+          call.close();
+          return;
+        }
+        mediaRef.current = call;
+        await waitForCamera();
+        if (closed) return;
+        call.answer(getLocalStream());
+        wireCall(call);
+      });
+
+      peer.on("disconnected", () => {
+        if (closed) return;
+        try {
+          peer.reconnect();
+        } catch {
+          /* ignore */
+        }
+      });
+
+      peer.on("error", (err) => {
+        if (closed) return;
+        const type = err && err.type;
+        failed = true;
+        setConn("error");
+        if (type === "peer-unavailable") {
+          setPeerMsg(
+            "Room not found. Check the code, and ask your partner to open the booth first.",
+          );
+        } else if (type === "unavailable-id") {
+          setPeerMsg(
+            "That room code is already in use. Go to Room settings and tap New code.",
+          );
+        } else if (
+          ["network", "server-error", "socket-error", "socket-closed"].includes(
+            type,
+          )
+        ) {
+          setPeerMsg(
+            "Could not reach the connection service. Check your internet and try again.",
+          );
+        } else {
+          setPeerMsg(
+            `Connection problem: ${(err && err.message) || type || "unknown error"}`,
+          );
+        }
+      });
+    };
+    start();
 
     return () => {
       closed = true;
       clearInterval(blankRef.current);
       dataRef.current = null;
       mediaRef.current = null;
-      try {
-        peer.destroy();
-      } catch {
-        /* ignore */
+      if (peer) {
+        try {
+          peer.destroy();
+        } catch {
+          /* ignore */
+        }
       }
       setRemoteStream(null);
     };
@@ -1674,7 +1795,11 @@ export default function App() {
               }}
             />
             {conn === "connected"
-              ? `${names[1]} is in the booth.`
+              ? iceState === "failed"
+                ? `${names[1]} joined, but your networks block the video. Try the same Wi-Fi.`
+                : iceState === "checking" || iceState === "new"
+                  ? `${names[1]} joined. Linking the cameras…`
+                  : `${names[1]} is in the booth.`
               : conn === "connecting"
                 ? "Connecting to the room…"
                 : conn === "closed"
@@ -1689,7 +1814,11 @@ export default function App() {
             {selfTile}
             {remoteStream ? (
               <Tile label={names[1]} tag="Live" filterCss={filter.css}>
-                <RemoteFeed stream={remoteStream} onEl={setPartnerEl} />
+                <RemoteFeed
+                  stream={remoteStream}
+                  onEl={setPartnerEl}
+                  iceState={iceState}
+                />
               </Tile>
             ) : simulate ? (
               <Tile label={names[1]} tag="Simulated" filterCss={filter.css}>
