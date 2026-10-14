@@ -1,34 +1,121 @@
-import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useId } from "react";
+import Peer from "peerjs";
 import {
-  Camera, Copy, Check, Download, RefreshCw, Users, Link2, Upload, Play, Palette,
-  Type, ArrowRight, ArrowLeft, Undo2, Trash2, LogIn, Plus, Smile, X,
-} from 'lucide-react';
+  Camera,
+  Copy,
+  Check,
+  Download,
+  RefreshCw,
+  Users,
+  Link2,
+  Upload,
+  Play,
+  Palette,
+  Type,
+  ArrowRight,
+  ArrowLeft,
+  Undo2,
+  Trash2,
+  LogIn,
+  Plus,
+  Smile,
+  X,
+} from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
 
 const FILTERS = [
-  { id: 'normal', label: 'Normal', css: 'none', dot: 'linear-gradient(135deg,#f5eefc,#aa9fbc)' },
-  { id: 'bw', label: 'Black & White', css: 'grayscale(1) contrast(1.1)', dot: 'linear-gradient(135deg,#fff,#222)' },
-  { id: 'sepia', label: 'Sepia', css: 'sepia(0.85) contrast(1.05) brightness(1.05)', dot: 'linear-gradient(135deg,#e8c99a,#6b4a28)' },
-  { id: 'cyber', label: 'Cyberpunk', css: 'saturate(1.9) contrast(1.25) hue-rotate(-25deg) brightness(0.92)', dot: 'linear-gradient(135deg,#00f0ff,#ff2bd6)' },
-  { id: 'vintage', label: 'Warm Vintage', css: 'sepia(0.35) saturate(1.3) contrast(0.95) brightness(1.08)', dot: 'linear-gradient(135deg,#ffd9a0,#d98a4e)' },
+  {
+    id: "normal",
+    label: "Normal",
+    css: "none",
+    dot: "linear-gradient(135deg,#f5eefc,#aa9fbc)",
+  },
+  {
+    id: "bw",
+    label: "Black & White",
+    css: "grayscale(1) contrast(1.1)",
+    dot: "linear-gradient(135deg,#fff,#222)",
+  },
+  {
+    id: "sepia",
+    label: "Sepia",
+    css: "sepia(0.85) contrast(1.05) brightness(1.05)",
+    dot: "linear-gradient(135deg,#e8c99a,#6b4a28)",
+  },
+  {
+    id: "cyber",
+    label: "Cyberpunk",
+    css: "saturate(1.9) contrast(1.25) hue-rotate(-25deg) brightness(0.92)",
+    dot: "linear-gradient(135deg,#00f0ff,#ff2bd6)",
+  },
+  {
+    id: "vintage",
+    label: "Warm Vintage",
+    css: "sepia(0.35) saturate(1.3) contrast(0.95) brightness(1.08)",
+    dot: "linear-gradient(135deg,#ffd9a0,#d98a4e)",
+  },
 ];
 
 const FRAMES = [
-  { id: 'classic', label: 'Classic White', bg: '#ffffff', ink: '#1a1a1a', sub: '#707070', accent: '#1a1a1a', edge: '#e6e6e6' },
-  { id: 'cyber', label: 'Cyberpunk Dark', bg: '#0b0a17', ink: '#e9fbff', sub: '#7fe9f5', accent: '#00f0ff', edge: '#ff2bd6' },
-  { id: 'pink', label: 'Pastel Pink', bg: '#ffd9e6', ink: '#6e1d43', sub: '#a4577f', accent: '#ff7fae', edge: '#ffffff' },
-  { id: 'vintage', label: 'Vintage Cream', bg: '#f2e8d0', ink: '#4f3a22', sub: '#8a7050', accent: '#b38650', edge: '#fff8e6' },
-  { id: 'retro', label: 'Retro Yellow', bg: '#ffd23f', ink: '#2a1d14', sub: '#6a4a1e', accent: '#e4572e', edge: '#2a1d14' },
+  {
+    id: "classic",
+    label: "Classic White",
+    bg: "#ffffff",
+    ink: "#1a1a1a",
+    sub: "#707070",
+    accent: "#1a1a1a",
+    edge: "#e6e6e6",
+  },
+  {
+    id: "cyber",
+    label: "Cyberpunk Dark",
+    bg: "#0b0a17",
+    ink: "#e9fbff",
+    sub: "#7fe9f5",
+    accent: "#00f0ff",
+    edge: "#ff2bd6",
+  },
+  {
+    id: "pink",
+    label: "Pastel Pink",
+    bg: "#ffd9e6",
+    ink: "#6e1d43",
+    sub: "#a4577f",
+    accent: "#ff7fae",
+    edge: "#ffffff",
+  },
+  {
+    id: "vintage",
+    label: "Vintage Cream",
+    bg: "#f2e8d0",
+    ink: "#4f3a22",
+    sub: "#8a7050",
+    accent: "#b38650",
+    edge: "#fff8e6",
+  },
+  {
+    id: "retro",
+    label: "Retro Yellow",
+    bg: "#ffd23f",
+    ink: "#2a1d14",
+    sub: "#6a4a1e",
+    accent: "#e4572e",
+    edge: "#2a1d14",
+  },
 ];
 
-const STICKERS = ['💖', '✌️', '✨', '🧸', '🐱', '🌸'];
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const STICKERS = ["💖", "✌️", "✨", "🧸", "🐱", "🌸"];
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const YEAR = new Date().getFullYear();
 const DATE_TEXT = new Date()
-  .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  .toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
   .toUpperCase();
 
 // Strip geometry in logical pixels. The preview draws at 1x, the PNG export at 2x.
@@ -42,7 +129,8 @@ const SH = RY + ROWS_H + 246;
 
 const DISPLAY = "'Bricolage Grotesque', system-ui, sans-serif";
 const MONO = "'DM Mono', ui-monospace, monospace";
-const EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+const EMOJI =
+  '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -58,7 +146,7 @@ function makeCode() {
   } catch {
     for (let i = 0; i < 6; i++) arr[i] = Math.floor(Math.random() * 4e9);
   }
-  return Array.from(arr, (n) => CODE_CHARS[n % CODE_CHARS.length]).join('');
+  return Array.from(arr, (n) => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
 function shareLink(code) {
@@ -67,7 +155,7 @@ function shareLink(code) {
     u.hash = code;
     return u.toString();
   } catch {
-    return '#' + code;
+    return "#" + code;
   }
 }
 
@@ -82,7 +170,7 @@ async function copyText(text, inputEl) {
     if (inputEl) {
       inputEl.focus();
       inputEl.select();
-      return document.execCommand('copy');
+      return document.execCommand("copy");
     }
   } catch {
     /* ignore */
@@ -102,19 +190,21 @@ function pixelFilter(ctx, size, id) {
   const im = ctx.getImageData(0, 0, size, size);
   const d = im.data;
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const r = d[i],
+      g = d[i + 1],
+      b = d[i + 2];
     const y = 0.299 * r + 0.587 * g + 0.114 * b;
-    if (id === 'bw') {
+    if (id === "bw") {
       d[i] = d[i + 1] = d[i + 2] = y;
-    } else if (id === 'sepia') {
+    } else if (id === "sepia") {
       d[i] = 0.393 * r + 0.769 * g + 0.189 * b;
       d[i + 1] = 0.349 * r + 0.686 * g + 0.168 * b;
       d[i + 2] = 0.272 * r + 0.534 * g + 0.131 * b;
-    } else if (id === 'cyber') {
+    } else if (id === "cyber") {
       d[i] = (r - 128) * 1.2 + 142;
       d[i + 1] = (g - 128) * 1.2 + 120;
       d[i + 2] = (b - 128) * 1.2 + 158;
-    } else if (id === 'vintage') {
+    } else if (id === "vintage") {
       d[i] = r * 1.08 + 10;
       d[i + 1] = g * 1.02 + 4;
       d[i + 2] = b * 0.84;
@@ -129,20 +219,30 @@ function captureSquare(el, { css, id, mirror }) {
   if (!sw || !sh) return null;
   const size = 1080;
   const side = Math.min(sw, sh);
-  const c = document.createElement('canvas');
+  const c = document.createElement("canvas");
   c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const native = 'filter' in ctx;
+  const ctx = c.getContext("2d");
+  const native = "filter" in ctx;
   ctx.save();
-  if (native && css !== 'none') ctx.filter = css;
+  if (native && css !== "none") ctx.filter = css;
   if (mirror) {
     ctx.translate(size, 0);
     ctx.scale(-1, 1);
   }
-  ctx.drawImage(el, (sw - side) / 2, (sh - side) / 2, side, side, 0, 0, size, size);
+  ctx.drawImage(
+    el,
+    (sw - side) / 2,
+    (sh - side) / 2,
+    side,
+    side,
+    0,
+    0,
+    size,
+    size,
+  );
   ctx.restore();
-  if (!native && id !== 'normal') pixelFilter(ctx, size, id);
-  return c.toDataURL('image/jpeg', 0.92);
+  if (!native && id !== "normal") pixelFilter(ctx, size, id);
+  return c.toDataURL("image/jpeg", 0.92);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -169,27 +269,27 @@ function fitText(ctx, text, weight, family, max, start, min) {
 function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
   canvas.width = SW * k;
   canvas.height = SH * k;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  const spaced = 'letterSpacing' in ctx;
+  const spaced = "letterSpacing" in ctx;
 
   ctx.fillStyle = f.bg;
   ctx.fillRect(0, 0, SW, SH);
 
   // Theme texture
-  if (f.id === 'cyber') {
+  if (f.id === "cyber") {
     let g = ctx.createRadialGradient(SW * 0.15, 0, 10, SW * 0.15, 0, 900);
-    g.addColorStop(0, 'rgba(255,43,214,0.28)');
-    g.addColorStop(1, 'rgba(255,43,214,0)');
+    g.addColorStop(0, "rgba(255,43,214,0.28)");
+    g.addColorStop(1, "rgba(255,43,214,0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, SW, SH);
     g = ctx.createRadialGradient(SW * 0.9, SH, 10, SW * 0.9, SH, 1000);
-    g.addColorStop(0, 'rgba(0,240,255,0.25)');
-    g.addColorStop(1, 'rgba(0,240,255,0)');
+    g.addColorStop(0, "rgba(0,240,255,0.25)");
+    g.addColorStop(1, "rgba(0,240,255,0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, SW, SH);
-  } else if (f.id === 'pink') {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  } else if (f.id === "pink") {
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
     for (let y = 40; y < SH; y += 56) {
       for (let x = (y / 56) % 2 ? 20 : 48; x < SW; x += 56) {
         ctx.beginPath();
@@ -197,14 +297,21 @@ function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
         ctx.fill();
       }
     }
-  } else if (f.id === 'vintage') {
-    const g = ctx.createRadialGradient(SW / 2, SH / 2, SW * 0.4, SW / 2, SH / 2, SH * 0.75);
-    g.addColorStop(0, 'rgba(120,80,30,0)');
-    g.addColorStop(1, 'rgba(120,80,30,0.22)');
+  } else if (f.id === "vintage") {
+    const g = ctx.createRadialGradient(
+      SW / 2,
+      SH / 2,
+      SW * 0.4,
+      SW / 2,
+      SH / 2,
+      SH * 0.75,
+    );
+    g.addColorStop(0, "rgba(120,80,30,0)");
+    g.addColorStop(1, "rgba(120,80,30,0.22)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, SW, SH);
-  } else if (f.id === 'retro') {
-    ['#e4572e', '#ff8a3d', '#2a1d14'].forEach((c, i) => {
+  } else if (f.id === "retro") {
+    ["#e4572e", "#ff8a3d", "#2a1d14"].forEach((c, i) => {
       ctx.fillStyle = c;
       ctx.fillRect(0, SH - 70 + i * 16, SW, 16);
     });
@@ -214,7 +321,7 @@ function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
   ctx.save();
   ctx.strokeStyle = f.accent;
   ctx.lineWidth = 4;
-  if (f.id === 'cyber') {
+  if (f.id === "cyber") {
     ctx.shadowColor = f.accent;
     ctx.shadowBlur = 18;
   }
@@ -223,13 +330,13 @@ function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
   ctx.restore();
 
   // Header: title, then one name per column
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = f.sub;
   ctx.font = `500 22px ${MONO}`;
-  if (spaced) ctx.letterSpacing = '7px';
-  ctx.fillText('LONG DISTANCE PHOTO BOOTH', SW / 2, 82);
-  if (spaced) ctx.letterSpacing = '0px';
+  if (spaced) ctx.letterSpacing = "7px";
+  ctx.fillText("LONG DISTANCE PHOTO BOOTH", SW / 2, 82);
+  if (spaced) ctx.letterSpacing = "0px";
   ctx.fillStyle = f.ink;
   names.forEach((nm, j) => {
     const cx = PAD + j * (PH + GAP) + PH / 2;
@@ -249,14 +356,14 @@ function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
       if (img) {
         ctx.drawImage(img, x, y, PH, PH);
       } else {
-        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
         ctx.fillRect(x, y, PH, PH);
       }
       ctx.restore();
       ctx.save();
-      ctx.strokeStyle = f.id === 'cyber' ? (j ? f.accent : f.edge) : f.edge;
+      ctx.strokeStyle = f.id === "cyber" ? (j ? f.accent : f.edge) : f.edge;
       ctx.lineWidth = 8;
-      if (f.id === 'cyber') {
+      if (f.id === "cyber") {
         ctx.shadowColor = ctx.strokeStyle;
         ctx.shadowBlur = 22;
       }
@@ -268,22 +375,22 @@ function drawStrip(canvas, { imgs, frame: f, stickers, footer, names }, k) {
 
   // Footer text and date
   const fy = RY + ROWS_H + 98;
-  const text = footer || ' ';
+  const text = footer || " ";
   ctx.fillStyle = f.ink;
   fitText(ctx, text, 700, DISPLAY, SW - PAD * 2 - 40, 68, 26);
   ctx.fillText(text, SW / 2, fy);
   ctx.fillStyle = f.sub;
   ctx.font = `500 24px ${MONO}`;
-  if (spaced) ctx.letterSpacing = '5px';
+  if (spaced) ctx.letterSpacing = "5px";
   ctx.fillText(DATE_TEXT, SW / 2, fy + 64);
-  if (spaced) ctx.letterSpacing = '0px';
+  if (spaced) ctx.letterSpacing = "0px";
 
   // Stickers sit on top of everything
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   stickers.forEach((s) => {
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.28)';
+    ctx.shadowColor = "rgba(0,0,0,0.28)";
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 5;
     ctx.font = `${Math.round(s.s * SW)}px ${EMOJI}`;
@@ -316,7 +423,7 @@ function CopyField({ label, value, Icon, onFail }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } else {
-      onFail('Copy was blocked. The text is selected, so copy it by hand.');
+      onFail("Copy was blocked. The text is selected, so copy it by hand.");
     }
   };
 
@@ -335,9 +442,14 @@ function CopyField({ label, value, Icon, onFail }) {
           className="field mono text-sm min-w-0"
           onFocus={(e) => e.target.select()}
         />
-        <button type="button" className="btn btn-ghost shrink-0" onClick={doCopy} aria-label={`Copy ${label}`}>
+        <button
+          type="button"
+          className="btn btn-ghost shrink-0"
+          onClick={doCopy}
+          aria-label={`Copy ${label}`}
+        >
           {copied ? <Check size={16} /> : <Copy size={16} />}
-          <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+          <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
     </div>
@@ -375,18 +487,33 @@ function SyntheticFeed({ variant, onEl }) {
 
   useEffect(() => {
     const cv = ref.current;
-    const ctx = cv.getContext('2d');
-    const partner = variant === 'partner';
+    const ctx = cv.getContext("2d");
+    const partner = variant === "partner";
     const pal = partner
-      ? { a: '#23406b', b: '#59d6c6', skin: '#f3c9a5', hair: '#2b1d2f', top: '#2e8f86' }
-      : { a: '#5a2147', b: '#ff9a76', skin: '#e8b894', hair: '#1d1530', top: '#c2456f' };
-    const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ? {
+          a: "#23406b",
+          b: "#59d6c6",
+          skin: "#f3c9a5",
+          hair: "#2b1d2f",
+          top: "#2e8f86",
+        }
+      : {
+          a: "#5a2147",
+          b: "#ff9a76",
+          skin: "#e8b894",
+          hair: "#1d1530",
+          top: "#c2456f",
+        };
+    const still =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const t0 = performance.now();
     let raf;
 
     const draw = (now) => {
       const t = still ? 1 : (now - t0) / 1000;
-      const W = cv.width, H = cv.height;
+      const W = cv.width,
+        H = cv.height;
       const g = ctx.createLinearGradient(0, 0, W, H);
       g.addColorStop(0, pal.a);
       g.addColorStop(1, pal.b);
@@ -407,7 +534,15 @@ function SyntheticFeed({ variant, onEl }) {
       const cx = W / 2 + sway;
       ctx.fillStyle = pal.top;
       ctx.beginPath();
-      ctx.ellipse(W / 2 + sway * 0.5, H * 1.02 + bob * 0.5, W * 0.34, H * 0.26, 0, 0, 7);
+      ctx.ellipse(
+        W / 2 + sway * 0.5,
+        H * 1.02 + bob * 0.5,
+        W * 0.34,
+        H * 0.26,
+        0,
+        0,
+        7,
+      );
       ctx.fill();
       ctx.fillStyle = pal.skin;
       ctx.fillRect(cx - 26, H * 0.62 + bob, 52, 70);
@@ -420,21 +555,21 @@ function SyntheticFeed({ variant, onEl }) {
       ctx.fill();
 
       const blink = t % 4 > 3.85 ? 0.1 : 1;
-      ctx.fillStyle = '#1b1220';
+      ctx.fillStyle = "#1b1220";
       [-34, 34].forEach((dx) => {
         ctx.beginPath();
         ctx.ellipse(cx + dx, H * 0.47 + bob, 9, 12 * blink, 0, 0, 7);
         ctx.fill();
       });
-      ctx.fillStyle = 'rgba(255,93,143,0.35)';
+      ctx.fillStyle = "rgba(255,93,143,0.35)";
       [-58, 58].forEach((dx) => {
         ctx.beginPath();
         ctx.ellipse(cx + dx, H * 0.525 + bob, 16, 10, 0, 0, 7);
         ctx.fill();
       });
-      ctx.strokeStyle = '#1b1220';
+      ctx.strokeStyle = "#1b1220";
       ctx.lineWidth = 6;
-      ctx.lineCap = 'round';
+      ctx.lineCap = "round";
       ctx.beginPath();
       ctx.arc(cx, H * 0.5 + bob, 36, 0.2 * Math.PI, 0.8 * Math.PI);
       ctx.stroke();
@@ -446,7 +581,14 @@ function SyntheticFeed({ variant, onEl }) {
     return () => cancelAnimationFrame(raf);
   }, [variant]);
 
-  return <canvas ref={ref} width={640} height={640} className="absolute inset-0 w-full h-full" />;
+  return (
+    <canvas
+      ref={ref}
+      width={640}
+      height={640}
+      className="absolute inset-0 w-full h-full"
+    />
+  );
 }
 
 function SelfFeed({ source, stream, onEl }) {
@@ -455,7 +597,7 @@ function SelfFeed({ source, stream, onEl }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
-    if (source.type === 'camera' && stream) {
+    if (source.type === "camera" && stream) {
       el.srcObject = stream;
       const p = el.play();
       if (p && p.catch) p.catch(() => {});
@@ -464,24 +606,55 @@ function SelfFeed({ source, stream, onEl }) {
     return () => onEl(null);
   }, [source, stream, onEl]);
 
-  if (source.type === 'sample') return <SyntheticFeed variant="me" onEl={onEl} />;
+  if (source.type === "sample")
+    return <SyntheticFeed variant="me" onEl={onEl} />;
 
-  if (source.type === 'file' && source.kind === 'image') {
+  if (source.type === "file" && source.kind === "image") {
     return (
-      <img ref={ref} src={source.url} alt="Your uploaded photo" className="absolute inset-0 w-full h-full object-cover" />
+      <img
+        ref={ref}
+        src={source.url}
+        alt="Your uploaded photo"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
     );
   }
 
   return (
     <video
       ref={ref}
-      src={source.type === 'file' ? source.url : undefined}
+      src={source.type === "file" ? source.url : undefined}
       autoPlay
       muted
       playsInline
-      loop={source.type === 'file'}
+      loop={source.type === "file"}
       className="absolute inset-0 w-full h-full object-cover"
-      style={{ transform: source.type === 'camera' ? 'scaleX(-1)' : 'none' }}
+      style={{ transform: source.type === "camera" ? "scaleX(-1)" : "none" }}
+    />
+  );
+}
+
+// The partner's live video, received over WebRTC.
+function RemoteFeed({ stream, onEl }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    el.srcObject = stream;
+    const p = el.play();
+    if (p && p.catch) p.catch(() => {});
+    onEl(el);
+    return () => onEl(null);
+  }, [stream, onEl]);
+
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      muted
+      playsInline
+      className="absolute inset-0 w-full h-full object-cover"
     />
   );
 }
@@ -490,7 +663,7 @@ function Tile({ label, tag, filterCss, children }) {
   return (
     <div
       className="relative aspect-square w-full overflow-hidden rounded-3xl"
-      style={{ border: '1px solid var(--line)', background: 'var(--ink2)' }}
+      style={{ border: "1px solid var(--line)", background: "var(--ink2)" }}
     >
       <div className="absolute inset-0" style={{ filter: filterCss }}>
         {children}
@@ -498,12 +671,19 @@ function Tile({ label, tag, filterCss, children }) {
       <div className="absolute left-3 bottom-3 right-3 flex items-center justify-between gap-2">
         <span
           className="rounded-full px-3 py-1 text-sm font-semibold"
-          style={{ background: 'var(--scrim)', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
+          style={{
+            background: "var(--scrim)",
+            WebkitBackdropFilter: "blur(8px)",
+            backdropFilter: "blur(8px)",
+          }}
         >
           {label}
         </span>
         {tag && (
-          <span className="eyebrow rounded-full px-2.5 py-1" style={{ background: 'var(--scrim)', color: 'var(--text)' }}>
+          <span
+            className="eyebrow rounded-full px-2.5 py-1"
+            style={{ background: "var(--scrim)", color: "var(--text)" }}
+          >
             {tag}
           </span>
         )}
@@ -514,19 +694,27 @@ function Tile({ label, tag, filterCss, children }) {
 
 function Steps({ phase, canBooth, canStrip, go }) {
   const items = [
-    { id: 'setup', n: 'Room', ok: true },
-    { id: 'booth', n: 'Booth', ok: canBooth },
-    { id: 'result', n: 'Strip', ok: canStrip },
+    { id: "setup", n: "Room", ok: true },
+    { id: "booth", n: "Booth", ok: canBooth },
+    { id: "result", n: "Strip", ok: canStrip },
   ];
   return (
     <nav className="flex items-center gap-1.5" aria-label="Steps">
       {items.map((s, i) => (
         <React.Fragment key={s.id}>
-          <button type="button" className="chip" aria-pressed={phase === s.id} disabled={!s.ok} onClick={() => go(s.id)}>
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={phase === s.id}
+            disabled={!s.ok}
+            onClick={() => go(s.id)}
+          >
             {s.n}
           </button>
           {i < items.length - 1 && (
-            <span aria-hidden="true" style={{ color: 'var(--muted)' }}>/</span>
+            <span aria-hidden="true" style={{ color: "var(--muted)" }}>
+              /
+            </span>
           )}
         </React.Fragment>
       ))}
@@ -541,37 +729,42 @@ function Steps({ phase, canBooth, canStrip, go }) {
 export default function App() {
   const hashCode = (() => {
     try {
-      const h = (window.location.hash || '').replace('#', '').toUpperCase();
-      return /^[A-Z0-9]{6}$/.test(h) ? h : '';
+      const h = (window.location.hash || "").replace("#", "").toUpperCase();
+      return /^[A-Z0-9]{6}$/.test(h) ? h : "";
     } catch {
-      return '';
+      return "";
     }
   })();
 
-  const [phase, setPhase] = useState('setup'); // setup | booth | result
+  const [phase, setPhase] = useState("setup"); // setup | booth | result
   const [entered, setEntered] = useState(false);
-  const [name, setName] = useState('');
-  const [partnerName, setPartnerName] = useState('');
-  const [mode, setMode] = useState(hashCode ? 'join' : 'create');
+  const [name, setName] = useState("");
+  const [partnerName, setPartnerName] = useState("");
+  const [mode, setMode] = useState(hashCode ? "join" : "create");
   const [createdCode, setCreatedCode] = useState(makeCode);
   const [joinCode, setJoinCode] = useState(hashCode);
-  const [filterId, setFilterId] = useState('normal');
-  const [simulate, setSimulate] = useState(true);
-  const [cam, setCam] = useState('idle');
+  const [filterId, setFilterId] = useState("normal");
+  const [simulate, setSimulate] = useState(false);
+  const [cam, setCam] = useState("idle");
   const [stream, setStream] = useState(null);
-  const [source, setSource] = useState({ type: 'sample' });
+  const [source, setSource] = useState({ type: "sample" });
   const [running, setRunning] = useState(false);
   const [shot, setShot] = useState(0);
   const [count, setCount] = useState(0);
   const [flashKey, setFlashKey] = useState(0);
   const [photos, setPhotos] = useState([]);
   const [imgs, setImgs] = useState([]);
-  const [frameId, setFrameId] = useState('classic');
+  const [frameId, setFrameId] = useState("classic");
   const [stickers, setStickers] = useState([]);
-  const [footer, setFooter] = useState('');
+  const [footer, setFooter] = useState("");
   const [footerTouched, setFooterTouched] = useState(false);
   const [fontsOk, setFontsOk] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState("");
+  const [roomSession, setRoomSession] = useState(null); // { code, mode, id } once the booth is opened
+  const [conn, setConn] = useState("idle"); // idle | waiting | connecting | connected | closed | error
+  const [peerMsg, setPeerMsg] = useState("");
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [remoteName, setRemoteName] = useState("");
 
   const streamRef = useRef(null);
   const selfElRef = useRef(null);
@@ -580,31 +773,54 @@ export default function App() {
   const stripRef = useRef(null);
   const dragRef = useRef(null);
   const toastTimer = useRef(null);
+  const dataRef = useRef(null);
+  const mediaRef = useRef(null);
+  const blankRef = useRef(null);
+  const phaseRef = useRef(phase);
+  const runningRef = useRef(false);
+  const nameRef = useRef("");
+  const startRef = useRef(() => {});
+  const cancelRef = useRef(() => {});
 
   const filter = FILTERS.find((f) => f.id === filterId);
   const frame = FRAMES.find((f) => f.id === frameId);
-  const activeCode = mode === 'create' ? createdCode : joinCode;
-  const names = [name.trim() || 'Me', partnerName.trim() || 'Partner'];
-  const valid = name.trim().length > 0 && (mode === 'create' || joinCode.length === 6);
+  const activeCode = mode === "create" ? createdCode : joinCode;
+  const names = [
+    name.trim() || "Me",
+    partnerName.trim() || remoteName || "Partner",
+  ];
+  const roomCode = roomSession ? roomSession.code : activeCode;
+  const isHost = roomSession
+    ? roomSession.mode === "create"
+    : mode === "create";
+  const valid =
+    name.trim().length > 0 && (mode === "create" || joinCode.length === 6);
 
   // The capture loop runs across many renders, so it reads these through refs.
   const filterRef = useRef(filter);
   filterRef.current = filter;
   const sourceRef = useRef(source);
   sourceRef.current = source;
+  phaseRef.current = phase;
+  runningRef.current = running;
+  nameRef.current = name.trim();
 
   const say = useCallback((t) => {
     setToast(t);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 3200);
+    toastTimer.current = setTimeout(() => setToast(""), 3200);
   }, []);
-  const setSelfEl = useCallback((el) => { selfElRef.current = el; }, []);
-  const setPartnerEl = useCallback((el) => { partnerElRef.current = el; }, []);
+  const setSelfEl = useCallback((el) => {
+    selfElRef.current = el;
+  }, []);
+  const setPartnerEl = useCallback((el) => {
+    partnerElRef.current = el;
+  }, []);
 
   // The footer follows the names until the person edits it.
   useEffect(() => {
     if (!footerTouched) setFooter(`${names[0]} & ${names[1]} • ${YEAR}`);
-  }, [name, partnerName, footerTouched]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [name, partnerName, remoteName, footerTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wait for the web fonts so the canvas strip does not draw with fallbacks.
   useEffect(() => {
@@ -623,24 +839,29 @@ export default function App() {
   // Camera
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCam('unsupported');
-      setSource({ type: 'sample' });
+      setCam("unsupported");
+      setSource({ type: "sample" });
       return;
     }
-    setCam('requesting');
+    setCam("requesting");
     try {
       const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 960 },
+        },
         audio: false,
       });
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      if (streamRef.current)
+        streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = s;
       setStream(s);
-      setSource({ type: 'camera' });
-      setCam('live');
+      setSource({ type: "camera" });
+      setCam("live");
     } catch (e) {
-      setCam(e && e.name === 'NotAllowedError' ? 'denied' : 'error');
-      if (sourceRef.current.type !== 'camera') setSource({ type: 'sample' });
+      setCam(e && e.name === "NotAllowedError" ? "denied" : "error");
+      if (sourceRef.current.type !== "camera") setSource({ type: "sample" });
     }
   }, []);
 
@@ -648,31 +869,260 @@ export default function App() {
     startCamera();
     return () => {
       runRef.current += 1;
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      if (streamRef.current)
+        streamRef.current.getTracks().forEach((t) => t.stop());
     };
   }, [startCamera]);
 
   const onFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const kind = file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : '';
+    const kind = file.type.startsWith("image")
+      ? "image"
+      : file.type.startsWith("video")
+        ? "video"
+        : "";
     if (!kind) {
-      say('Pick a video or photo file.');
+      say("Pick a video or photo file.");
       return;
     }
-    if (sourceRef.current.type === 'file') URL.revokeObjectURL(sourceRef.current.url);
-    setSource({ type: 'file', url: URL.createObjectURL(file), kind });
-    e.target.value = '';
+    if (sourceRef.current.type === "file")
+      URL.revokeObjectURL(sourceRef.current.url);
+    setSource({ type: "file", url: URL.createObjectURL(file), kind });
+    e.target.value = "";
+  };
+
+  // ---- Live connection to the partner (PeerJS / WebRTC) ----
+  // The host's room code is their peer ID. The joiner connects to it with a data
+  // channel (names, filter, start/cancel) and a video call (the two cameras).
+  const sendMsg = useCallback((m) => {
+    const dc = dataRef.current;
+    if (dc && dc.open) {
+      try {
+        dc.send(m);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  const changeFilter = (id) => {
+    setFilterId(id);
+    sendMsg({ t: "filter", id });
+  };
+
+  // A still "No camera" video track, for when nothing better can be sent.
+  const blankStream = () => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 480;
+    const g = c.getContext("2d");
+    let on = false;
+    const paint = () => {
+      on = !on;
+      g.fillStyle = on ? "#1f1829" : "#201a2a";
+      g.fillRect(0, 0, 480, 480);
+      g.fillStyle = "#aa9fbc";
+      g.font = "28px sans-serif";
+      g.textAlign = "center";
+      g.fillText("No camera", 240, 250);
+    };
+    paint();
+    clearInterval(blankRef.current);
+    blankRef.current = setInterval(paint, 500);
+    return c.captureStream(2);
+  };
+
+  // What we send to the partner: the real camera, else whatever our own tile is showing.
+  const getLocalStream = () => {
+    if (sourceRef.current.type === "camera" && streamRef.current)
+      return streamRef.current;
+    const el = selfElRef.current;
+    try {
+      if (el && el.captureStream) {
+        const s = el.captureStream(30);
+        if (s.getVideoTracks().length) return s;
+      }
+    } catch {
+      /* fall through */
+    }
+    return blankStream();
+  };
+
+  useEffect(() => {
+    if (!roomSession) return undefined;
+    const { code, mode: role } = roomSession;
+    const host = role === "create";
+    const hostId = `ldpb-${code.toLowerCase()}`;
+    let closed = false;
+    let failed = false;
+
+    setConn(host ? "waiting" : "connecting");
+    setPeerMsg("");
+    setRemoteStream(null);
+    setRemoteName("");
+
+    const peer = host ? new Peer(hostId) : new Peer();
+
+    const lost = () => {
+      if (closed || failed) return;
+      dataRef.current = null;
+      mediaRef.current = null;
+      setRemoteStream(null);
+      setConn(host ? "waiting" : "closed");
+      say("Your partner left the booth.");
+    };
+
+    const onData = (msg) => {
+      if (!msg || typeof msg !== "object") return;
+      if (msg.t === "hello") {
+        setRemoteName(String(msg.name || "").slice(0, 24));
+      } else if (msg.t === "filter") {
+        setFilterId(FILTERS.some((f) => f.id === msg.id) ? msg.id : "normal");
+      } else if (msg.t === "start") {
+        if (phaseRef.current === "booth" && !runningRef.current)
+          startRef.current(true);
+      } else if (msg.t === "cancel") {
+        if (runningRef.current) cancelRef.current(true);
+      } else if (msg.t === "busy") {
+        failed = true;
+        setConn("error");
+        setPeerMsg("This room already has two people.");
+      }
+    };
+
+    const wireData = (dc) => {
+      dataRef.current = dc;
+      const hello = () => {
+        try {
+          dc.send({ t: "hello", name: nameRef.current });
+          if (host) dc.send({ t: "filter", id: filterRef.current.id });
+        } catch {
+          /* ignore */
+        }
+      };
+      if (dc.open) hello();
+      else dc.on("open", hello);
+      dc.on("data", onData);
+      dc.on("close", lost);
+      dc.on("error", () => {});
+    };
+
+    const wireCall = (call) => {
+      mediaRef.current = call;
+      call.on("stream", (rs) => {
+        if (closed) return;
+        setRemoteStream(rs);
+        setConn("connected");
+      });
+      call.on("close", lost);
+      call.on("error", lost);
+    };
+
+    peer.on("open", () => {
+      if (closed || host) return;
+      wireData(peer.connect(hostId, { reliable: true }));
+      wireCall(peer.call(hostId, getLocalStream()));
+    });
+
+    peer.on("connection", (dc) => {
+      if (dataRef.current && dataRef.current.open) {
+        dc.on("open", () => {
+          try {
+            dc.send({ t: "busy" });
+          } catch {
+            /* ignore */
+          }
+          setTimeout(() => dc.close(), 300);
+        });
+        return;
+      }
+      wireData(dc);
+    });
+
+    peer.on("call", (call) => {
+      if (mediaRef.current) {
+        call.close();
+        return;
+      }
+      call.answer(getLocalStream());
+      wireCall(call);
+    });
+
+    peer.on("disconnected", () => {
+      if (closed) return;
+      try {
+        peer.reconnect();
+      } catch {
+        /* ignore */
+      }
+    });
+
+    peer.on("error", (err) => {
+      if (closed) return;
+      const type = err && err.type;
+      failed = true;
+      setConn("error");
+      if (type === "peer-unavailable") {
+        setPeerMsg(
+          "Room not found. Check the code, and ask your partner to open the booth first.",
+        );
+      } else if (type === "unavailable-id") {
+        setPeerMsg(
+          "That room code is already in use. Go to Room settings and tap New code.",
+        );
+      } else if (
+        ["network", "server-error", "socket-error", "socket-closed"].includes(
+          type,
+        )
+      ) {
+        setPeerMsg(
+          "Could not reach the connection service. Check your internet and try again.",
+        );
+      } else {
+        setPeerMsg(
+          `Connection problem: ${(err && err.message) || type || "unknown error"}`,
+        );
+      }
+    });
+
+    return () => {
+      closed = true;
+      clearInterval(blankRef.current);
+      dataRef.current = null;
+      mediaRef.current = null;
+      try {
+        peer.destroy();
+      } catch {
+        /* ignore */
+      }
+      setRemoteStream(null);
+    };
+  }, [roomSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the camera starts after the call began, swap the new video into the call.
+  useEffect(() => {
+    const call = mediaRef.current;
+    if (!call || !call.peerConnection || !stream) return;
+    const track = stream.getVideoTracks()[0];
+    const sender = call.peerConnection
+      .getSenders()
+      .find((s) => s.track && s.track.kind === "video");
+    if (sender && track) sender.replaceTrack(track).catch(() => {});
+  }, [stream]);
+
+  const reconnect = () => {
+    if (roomSession) setRoomSession({ ...roomSession, id: Date.now() });
   };
 
   // Capture sequence: 3 shots, a 3-2-1 countdown before each, flash on every snapshot.
-  const startSession = async () => {
+  const startSession = async (fromPeer = false) => {
     if (running) return;
     runRef.current += 1;
     const id = runRef.current;
     setPhotos([]);
     setStickers([]);
     setRunning(true);
+    if (!fromPeer) sendMsg({ t: "start" });
     const taken = [];
 
     for (let i = 0; i < 3; i++) {
@@ -685,12 +1135,20 @@ export default function App() {
       setCount(0);
 
       const f = filterRef.current;
-      const me = captureSquare(selfElRef.current, { css: f.css, id: f.id, mirror: sourceRef.current.type === 'camera' });
-      const partner = captureSquare(partnerElRef.current, { css: f.css, id: f.id, mirror: false });
+      const me = captureSquare(selfElRef.current, {
+        css: f.css,
+        id: f.id,
+        mirror: sourceRef.current.type === "camera",
+      });
+      const partner = captureSquare(partnerElRef.current, {
+        css: f.css,
+        id: f.id,
+        mirror: false,
+      });
       if (!me || !partner) {
         setRunning(false);
         setPhotos([]);
-        say('A feed was not ready. Check both previews and start again.');
+        say("A feed was not ready. Check both previews and start again.");
         return;
       }
       setFlashKey((k) => k + 1);
@@ -701,15 +1159,20 @@ export default function App() {
     }
 
     setRunning(false);
-    setPhase('result');
+    setPhase("result");
   };
 
-  const cancelSession = () => {
+  const cancelSession = (fromPeer = false) => {
     runRef.current += 1;
     setRunning(false);
     setCount(0);
     setPhotos([]);
+    if (!fromPeer) sendMsg({ t: "cancel" });
   };
+
+  // The data channel handlers live across renders, so they call these through refs.
+  startRef.current = startSession;
+  cancelRef.current = cancelSession;
 
   const retake = () => {
     runRef.current += 1;
@@ -717,7 +1180,7 @@ export default function App() {
     setCount(0);
     setPhotos([]);
     setStickers([]);
-    setPhase('booth');
+    setPhase("booth");
   };
 
   // Decode the captured photos into images the strip canvas can draw.
@@ -737,31 +1200,52 @@ export default function App() {
               im.onload = () => res(im);
               im.onerror = () => res(null);
               im.src = src;
-            })
-        )
+            }),
+        ),
     ).then((list) => {
       if (live) setImgs(list);
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [photos]);
 
   // Redraw the strip preview whenever anything on it changes.
   useEffect(() => {
-    if (phase !== 'result' || !stripRef.current) return;
+    if (phase !== "result" || !stripRef.current) return;
     drawStrip(stripRef.current, { imgs, frame, stickers, footer, names }, 1);
-  }, [phase, imgs, frameId, stickers, footer, name, partnerName, fontsOk]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    phase,
+    imgs,
+    frameId,
+    stickers,
+    footer,
+    name,
+    partnerName,
+    remoteName,
+    fontsOk,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stickers
   const addSticker = (emoji) => {
     setStickers((list) => [
       ...list,
-      { id: Date.now() + Math.random(), emoji, x: 0.15 + Math.random() * 0.7, y: 0.12 + Math.random() * 0.76, s: 0.13 },
+      {
+        id: Date.now() + Math.random(),
+        emoji,
+        x: 0.15 + Math.random() * 0.7,
+        y: 0.12 + Math.random() * 0.76,
+        s: 0.13,
+      },
     ]);
   };
 
   const toStrip = (e) => {
     const r = stripRef.current.getBoundingClientRect();
-    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+    return {
+      x: (e.clientX - r.left) / r.width,
+      y: (e.clientY - r.top) / r.height,
+    };
   };
 
   const onDown = (e) => {
@@ -772,7 +1256,11 @@ export default function App() {
       const ry = ((s.s * SW) / SH) * 0.55;
       if (Math.abs(p.x - s.x) < rx && Math.abs(p.y - s.y) < ry) {
         dragRef.current = { idx: i, dx: s.x - p.x, dy: s.y - p.y };
-        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
         return;
       }
     }
@@ -784,58 +1272,85 @@ export default function App() {
     const p = toStrip(e);
     setStickers((list) =>
       list.map((s, i) =>
-        i === d.idx ? { ...s, x: clamp(p.x + d.dx, 0.02, 0.98), y: clamp(p.y + d.dy, 0.02, 0.98) } : s
-      )
+        i === d.idx
+          ? {
+              ...s,
+              x: clamp(p.x + d.dx, 0.02, 0.98),
+              y: clamp(p.y + d.dy, 0.02, 0.98),
+            }
+          : s,
+      ),
     );
   };
 
-  const onUp = () => { dragRef.current = null; };
+  const onUp = () => {
+    dragRef.current = null;
+  };
 
   // Export a 2400px-wide PNG
   const exportPng = async () => {
     if (imgs.length < 6) return;
-    const off = document.createElement('canvas');
+    const off = document.createElement("canvas");
     drawStrip(off, { imgs, frame, stickers, footer, names }, 2);
-    const blob = await new Promise((r) => off.toBlob(r, 'image/png'));
+    const blob = await new Promise((r) => off.toBlob(r, "image/png"));
     if (!blob) {
-      say('Could not render the image. Try again.');
+      say("Could not render the image. Try again.");
       return;
     }
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `photo-strip-${activeCode || 'booth'}.png`;
+    a.download = `photo-strip-${activeCode || "booth"}.png`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    say('Photo strip downloaded.');
+    say("Photo strip downloaded.");
   };
 
   const go = (id) => {
     if (running) return;
-    if (id === 'booth' && !entered) return;
-    if (id === 'result' && photos.length < 3) return;
+    if (id === "booth" && !entered) return;
+    if (id === "result" && photos.length < 3) return;
     setPhase(id);
   };
 
   const enter = () => {
     if (!valid) return;
     setEntered(true);
-    setPhase('booth');
-    try { window.history.replaceState(null, '', `#${activeCode}`); } catch { /* ignore */ }
+    setPhase("booth");
+    if (
+      !roomSession ||
+      roomSession.code !== activeCode ||
+      roomSession.mode !== mode
+    ) {
+      setRoomSession({ code: activeCode, mode, id: Date.now() });
+    }
+    try {
+      window.history.replaceState(null, "", `#${activeCode}`);
+    } catch {
+      /* ignore */
+    }
   };
 
   const camMsg = {
-    requesting: 'Asking for camera access…',
-    live: 'Camera is live.',
-    denied: 'Camera access was blocked. Allow it in your browser, retry, load a video or photo, or keep the animated sample.',
-    unsupported: 'This browser has no camera support. Load a video or photo, or keep the animated sample.',
-    error: 'The camera could not start. Retry, load a video or photo, or keep the animated sample.',
-    idle: '',
+    requesting: "Asking for camera access…",
+    live: "Camera is live.",
+    denied:
+      "Camera access was blocked. Allow it in your browser, retry, load a video or photo, or keep the animated sample.",
+    unsupported:
+      "This browser has no camera support. Load a video or photo, or keep the animated sample.",
+    error:
+      "The camera could not start. Retry, load a video or photo, or keep the animated sample.",
+    idle: "",
   }[cam];
 
-  const selfTag = source.type === 'camera' ? 'Live' : source.type === 'file' ? 'From file' : 'Sample';
+  const selfTag =
+    source.type === "camera"
+      ? "Live"
+      : source.type === "file"
+        ? "From file"
+        : "Sample";
 
   const selfTile = (
     <Tile label={names[0]} tag={selfTag} filterCss={filter.css}>
@@ -846,7 +1361,13 @@ export default function App() {
   const fileInput = (
     <label className="btn btn-ghost cursor-pointer" htmlFor="feed-file">
       <Upload size={16} /> Use a video or photo
-      <input id="feed-file" type="file" accept="video/*,image/*" className="sr-only" onChange={onFile} />
+      <input
+        id="feed-file"
+        type="file"
+        accept="video/*,image/*"
+        className="sr-only"
+        onChange={onFile}
+      />
     </label>
   );
 
@@ -854,15 +1375,25 @@ export default function App() {
   const header = (
     <header className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div className="flex items-center gap-3">
-        <span className="grid place-items-center w-10 h-10 rounded-2xl" style={{ background: 'var(--rose)', color: 'var(--onbright)' }}>
+        <span
+          className="grid place-items-center w-10 h-10 rounded-2xl"
+          style={{ background: "var(--rose)", color: "var(--onbright)" }}
+        >
           <Camera size={20} />
         </span>
         <div>
-          <div className="font-display font-bold text-lg leading-none">Long Distance Photo Booth</div>
+          <div className="font-display font-bold text-lg leading-none">
+            Long Distance Photo Booth
+          </div>
           <div className="eyebrow mt-1">Two cameras, one strip</div>
         </div>
       </div>
-      <Steps phase={phase} canBooth={entered && !running} canStrip={photos.length >= 3 && !running} go={go} />
+      <Steps
+        phase={phase}
+        canBooth={entered && !running}
+        canStrip={photos.length >= 3 && !running}
+        go={go}
+      />
     </header>
   );
 
@@ -874,13 +1405,16 @@ export default function App() {
         <h1 className="font-display font-bold text-4xl sm:text-5xl leading-[1.02] tracking-tight mt-2 balance">
           Pose together, from anywhere.
         </h1>
-        <p className="mt-3 max-w-md" style={{ color: 'var(--muted)' }}>
-          Make a room, share the code, and take a three-shot strip with your person. Both of you end up on the same frame.
+        <p className="mt-3 max-w-md" style={{ color: "var(--muted)" }}>
+          Make a room, share the code, and take a three-shot strip with your
+          person. Both of you end up on the same frame.
         </p>
 
         <div className="mt-6 grid gap-4">
           <div>
-            <label className="label block mb-1.5" htmlFor="my-name">Your name</label>
+            <label className="label block mb-1.5" htmlFor="my-name">
+              Your name
+            </label>
             <input
               id="my-name"
               className="field"
@@ -893,35 +1427,76 @@ export default function App() {
           </div>
 
           <div className="flex gap-2" role="group" aria-label="Room action">
-            <button type="button" className="chip flex-1 justify-center" aria-pressed={mode === 'create'} onClick={() => setMode('create')}>
+            <button
+              type="button"
+              className="chip flex-1 justify-center"
+              aria-pressed={mode === "create"}
+              onClick={() => setMode("create")}
+            >
               <Plus size={15} /> Create room
             </button>
-            <button type="button" className="chip flex-1 justify-center" aria-pressed={mode === 'join'} onClick={() => setMode('join')}>
+            <button
+              type="button"
+              className="chip flex-1 justify-center"
+              aria-pressed={mode === "join"}
+              onClick={() => setMode("join")}
+            >
               <LogIn size={15} /> Join room
             </button>
           </div>
 
-          {mode === 'create' ? (
-            <div className="grid gap-4 rounded-2xl p-4" style={{ background: 'rgba(0,0,0,0.22)', border: '1px solid var(--line)' }}>
-              <CopyField label="Room code" value={createdCode} Icon={Users} onFail={say} />
-              <CopyField label="Room link" value={shareLink(createdCode)} Icon={Link2} onFail={say} />
+          {mode === "create" ? (
+            <div
+              className="grid gap-4 rounded-2xl p-4"
+              style={{
+                background: "rgba(0,0,0,0.22)",
+                border: "1px solid var(--line)",
+              }}
+            >
+              <CopyField
+                label="Room code"
+                value={createdCode}
+                Icon={Users}
+                onFail={say}
+              />
+              <CopyField
+                label="Room link"
+                value={shareLink(createdCode)}
+                Icon={Link2}
+                onFail={say}
+              />
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm" style={{ color: 'var(--muted)' }}>Send either one to your partner.</span>
-                <button type="button" className="btn btn-ghost" onClick={() => setCreatedCode(makeCode())}>
+                <span className="text-sm" style={{ color: "var(--muted)" }}>
+                  Send either one to your partner.
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setCreatedCode(makeCode())}
+                >
                   <RefreshCw size={15} /> New code
                 </button>
               </div>
             </div>
           ) : (
             <div>
-              <label className="label block mb-1.5" htmlFor="join-code">Room code</label>
+              <label className="label block mb-1.5" htmlFor="join-code">
+                Room code
+              </label>
               <input
                 id="join-code"
                 className="field mono text-xl tracking-[0.3em] uppercase"
                 placeholder="ABC123"
                 maxLength={6}
                 value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                onChange={(e) =>
+                  setJoinCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 6),
+                  )
+                }
                 autoComplete="off"
               />
             </div>
@@ -929,7 +1504,8 @@ export default function App() {
 
           <div>
             <label className="label block mb-1.5" htmlFor="partner-name">
-              Partner's name <span style={{ fontWeight: 400 }}>(printed on the strip)</span>
+              Partner's name{" "}
+              <span style={{ fontWeight: 400 }}>(printed on the strip)</span>
             </label>
             <input
               id="partner-name"
@@ -942,18 +1518,28 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className="btn btn-primary btn-lg" disabled={!valid} onClick={enter}>
-              {mode === 'create' ? 'Open the booth' : 'Join the booth'} <ArrowRight size={18} />
+            <button
+              type="button"
+              className="btn btn-primary btn-lg"
+              disabled={!valid}
+              onClick={enter}
+            >
+              {mode === "create" ? "Open the booth" : "Join the booth"}{" "}
+              <ArrowRight size={18} />
             </button>
             {!valid && (
-              <span className="text-sm" style={{ color: 'var(--muted)' }}>
-                {!name.trim() ? 'Add your name to continue.' : 'Enter the 6-character room code.'}
+              <span className="text-sm" style={{ color: "var(--muted)" }}>
+                {!name.trim()
+                  ? "Add your name to continue."
+                  : "Enter the 6-character room code."}
               </span>
             )}
           </div>
 
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            This app does not open a live video link between two devices. Your partner appears as a simulated camera, so you can run the whole booth from start to finish.
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Create a room, then send the code or link to your partner. When they
+            join, their camera appears next to yours. Both of you keep this page
+            open.
           </p>
         </div>
       </section>
@@ -963,21 +1549,41 @@ export default function App() {
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="eyebrow">Camera check</div>
             <span
-              className={`eyebrow ${cam === 'requesting' ? 'pulse' : ''}`}
-              style={{ color: cam === 'live' ? 'var(--teal)' : 'var(--muted)' }}
+              className={`eyebrow ${cam === "requesting" ? "pulse" : ""}`}
+              style={{ color: cam === "live" ? "var(--teal)" : "var(--muted)" }}
             >
-              {cam === 'live' ? '● Live' : cam === 'requesting' ? 'Connecting' : 'Not connected'}
+              {cam === "live"
+                ? "● Live"
+                : cam === "requesting"
+                  ? "Connecting"
+                  : "Not connected"}
             </span>
           </div>
           {selfTile}
-          <p className="mt-3 text-sm" style={{ color: 'var(--muted)' }} role="status">{camMsg}</p>
+          <p
+            className="mt-3 text-sm"
+            style={{ color: "var(--muted)" }}
+            role="status"
+          >
+            {camMsg}
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className="btn btn-ghost" onClick={startCamera} disabled={cam === 'requesting'}>
-              <Camera size={16} /> {cam === 'live' ? 'Restart camera' : 'Retry camera'}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={startCamera}
+              disabled={cam === "requesting"}
+            >
+              <Camera size={16} />{" "}
+              {cam === "live" ? "Restart camera" : "Retry camera"}
             </button>
             {fileInput}
-            {source.type !== 'sample' && cam !== 'live' && (
-              <button type="button" className="btn btn-ghost" onClick={() => setSource({ type: 'sample' })}>
+            {source.type !== "sample" && cam !== "live" && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setSource({ type: "sample" })}
+              >
                 Use sample
               </button>
             )}
@@ -985,7 +1591,7 @@ export default function App() {
         </div>
         <div className="glass p-4 sm:p-5">
           <div className="eyebrow mb-3">Live filter</div>
-          <FilterChips value={filterId} onChange={setFilterId} />
+          <FilterChips value={filterId} onChange={changeFilter} />
         </div>
       </section>
     </div>
@@ -996,10 +1602,31 @@ export default function App() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="chip" style={{ cursor: 'default' }}>
-            <Users size={14} /> Room <span className="mono">{activeCode}</span>
+          <span className="chip" style={{ cursor: "default" }}>
+            <Users size={14} /> Room <span className="mono">{roomCode}</span>
           </span>
-          <button type="button" className="chip" disabled={running} onClick={() => setPhase('setup')}>
+          {isHost && (
+            <button
+              type="button"
+              className="chip"
+              onClick={async () => {
+                const ok = await copyText(shareLink(roomCode));
+                say(
+                  ok
+                    ? "Invite link copied."
+                    : "Copy was blocked. Copy the link from the Room page.",
+                );
+              }}
+            >
+              <Link2 size={14} /> Copy invite link
+            </button>
+          )}
+          <button
+            type="button"
+            className="chip"
+            disabled={running}
+            onClick={() => setPhase("setup")}
+          >
             <ArrowLeft size={14} /> Room settings
           </button>
         </div>
@@ -1008,41 +1635,115 @@ export default function App() {
           role="switch"
           aria-checked={simulate}
           className="chip"
-          disabled={running}
+          disabled={running || !!remoteStream}
           onClick={() => setSimulate(!simulate)}
         >
-          <span className="dot" style={{ background: simulate ? 'var(--teal)' : 'transparent' }} />
+          <span
+            className="dot"
+            style={{ background: simulate ? "var(--teal)" : "transparent" }}
+          />
           Simulate partner camera
         </button>
       </div>
 
       <div className="glass p-3 sm:p-5">
-        <div className={`bulbs mb-4 ${running ? 'live' : ''}`} aria-hidden="true">
+        <div
+          className={`bulbs mb-4 ${running ? "live" : ""}`}
+          aria-hidden="true"
+        >
           {Array.from({ length: 16 }, (_, i) => (
-            <span key={i} style={{ '--i': i }} />
+            <span key={i} style={{ "--i": i }} />
           ))}
         </div>
 
+        {roomSession && (
+          <p
+            className="mb-3 flex items-center gap-2 text-sm"
+            role="status"
+            style={{ color: "var(--muted)" }}
+          >
+            <span
+              className={`dot ${conn === "waiting" || conn === "connecting" ? "pulse" : ""}`}
+              style={{
+                background:
+                  conn === "connected"
+                    ? "var(--teal)"
+                    : conn === "error"
+                      ? "var(--rose)"
+                      : "var(--bulb)",
+              }}
+            />
+            {conn === "connected"
+              ? `${names[1]} is in the booth.`
+              : conn === "connecting"
+                ? "Connecting to the room…"
+                : conn === "closed"
+                  ? "Your partner left the booth."
+                  : conn === "error"
+                    ? peerMsg
+                    : "Waiting for your partner to join."}
+          </p>
+        )}
         <div className="relative">
           <div className="grid gap-3 sm:grid-cols-2">
             {selfTile}
-            {simulate ? (
+            {remoteStream ? (
+              <Tile label={names[1]} tag="Live" filterCss={filter.css}>
+                <RemoteFeed stream={remoteStream} onEl={setPartnerEl} />
+              </Tile>
+            ) : simulate ? (
               <Tile label={names[1]} tag="Simulated" filterCss={filter.css}>
                 <SyntheticFeed variant="partner" onEl={setPartnerEl} />
               </Tile>
             ) : (
               <div
                 className="relative aspect-square w-full rounded-3xl grid place-items-center text-center p-6"
-                style={{ border: '1px dashed var(--line)', background: 'var(--ink2)' }}
+                style={{
+                  border: "1px dashed var(--line)",
+                  background: "var(--ink2)",
+                }}
               >
                 <div>
-                  <div className="mx-auto mb-3 grid place-items-center w-12 h-12 rounded-full pulse" style={{ background: 'var(--panel2)' }}>
+                  <div
+                    className="mx-auto mb-3 grid place-items-center w-12 h-12 rounded-full pulse"
+                    style={{ background: "var(--panel2)" }}
+                  >
                     <Users size={22} />
                   </div>
-                  <div className="font-display font-bold text-xl">Waiting for {names[1]}</div>
-                  <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                    Turn on Simulate partner camera to try the full session.
+                  <div className="font-display font-bold text-xl">
+                    {conn === "error"
+                      ? "Could not connect"
+                      : conn === "closed"
+                        ? `${names[1]} left`
+                        : isHost
+                          ? `Waiting for ${names[1]}`
+                          : "Connecting…"}
+                  </div>
+                  <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+                    {conn === "error"
+                      ? peerMsg
+                      : isHost
+                        ? `Send the code ${roomCode} or the invite link. Their camera shows up here when they join.`
+                        : "Hold on while we reach the room."}
                   </p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    {(conn === "error" || conn === "closed") && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={reconnect}
+                      >
+                        <RefreshCw size={15} /> Reconnect
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setSimulate(true)}
+                    >
+                      Try a simulated partner
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1051,14 +1752,14 @@ export default function App() {
           {running && count > 0 && (
             <div
               className="absolute inset-0 grid place-items-center rounded-3xl"
-              style={{ background: 'var(--scrim)' }}
+              style={{ background: "var(--scrim)" }}
               role="status"
               aria-live="assertive"
             >
               <div
                 key={`${shot}-${count}`}
                 className="count font-display font-extrabold"
-                style={{ fontSize: 'clamp(6rem, 24vw, 12rem)', lineHeight: 1 }}
+                style={{ fontSize: "clamp(6rem, 24vw, 12rem)", lineHeight: 1 }}
               >
                 {count}
               </div>
@@ -1067,7 +1768,11 @@ export default function App() {
         </div>
 
         <div className="mt-5 grid gap-4">
-          <FilterChips value={filterId} onChange={setFilterId} disabled={running} />
+          <FilterChips
+            value={filterId}
+            onChange={changeFilter}
+            disabled={running}
+          />
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1077,43 +1782,74 @@ export default function App() {
                     key={i}
                     className="w-3 h-3 rounded-full"
                     style={{
-                      background: i < photos.length ? 'var(--rose)' : 'var(--panel2)',
-                      border: '1px solid var(--line)',
-                      boxShadow: running && i === shot && i >= photos.length ? '0 0 0 3px rgba(255,93,143,0.35)' : 'none',
+                      background:
+                        i < photos.length ? "var(--rose)" : "var(--panel2)",
+                      border: "1px solid var(--line)",
+                      boxShadow:
+                        running && i === shot && i >= photos.length
+                          ? "0 0 0 3px rgba(255,93,143,0.35)"
+                          : "none",
                     }}
                   />
                 ))}
               </div>
-              <span className="text-sm" style={{ color: 'var(--muted)' }}>
-                {running ? `Shot ${shot + 1} of 3. Strike a pose together.` : 'Three shots, 3-2-1 before each one.'}
+              <span className="text-sm" style={{ color: "var(--muted)" }}>
+                {running
+                  ? `Shot ${shot + 1} of 3. Strike a pose together.`
+                  : "Three shots, 3-2-1 before each one."}
               </span>
             </div>
             <div className="flex gap-2">
               {running && (
-                <button type="button" className="btn btn-ghost" onClick={cancelSession}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => cancelSession(false)}
+                >
                   <X size={16} /> Cancel
                 </button>
               )}
-              <button type="button" className="btn btn-primary btn-lg" disabled={running || !simulate} onClick={startSession}>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                disabled={running || !(remoteStream || simulate)}
+                onClick={() => startSession(false)}
+              >
                 <Play size={18} /> Start Photo Session
               </button>
             </div>
           </div>
 
           {photos.length > 0 && running && (
-            <div className="flex gap-2 overflow-x-auto" aria-label="Shots so far">
+            <div
+              className="flex gap-2 overflow-x-auto"
+              aria-label="Shots so far"
+            >
               {photos.map((p, i) => (
-                <div key={i} className="flex gap-1 shrink-0 rounded-xl p-1" style={{ background: 'var(--panel2)' }}>
-                  <img src={p.me} alt={`Shot ${i + 1}, you`} className="w-14 h-14 rounded-lg object-cover" />
-                  <img src={p.partner} alt={`Shot ${i + 1}, partner`} className="w-14 h-14 rounded-lg object-cover" />
+                <div
+                  key={i}
+                  className="flex gap-1 shrink-0 rounded-xl p-1"
+                  style={{ background: "var(--panel2)" }}
+                >
+                  <img
+                    src={p.me}
+                    alt={`Shot ${i + 1}, you`}
+                    className="w-14 h-14 rounded-lg object-cover"
+                  />
+                  <img
+                    src={p.partner}
+                    alt={`Shot ${i + 1}, partner`}
+                    className="w-14 h-14 rounded-lg object-cover"
+                  />
                 </div>
               ))}
             </div>
           )}
 
-          {!simulate && (
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>
-              A session needs two feeds. Turn on Simulate partner camera to start.
+          {!remoteStream && !simulate && (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              A session needs both cameras. Wait for your partner to join, or
+              try a simulated partner to test it alone.
             </p>
           )}
         </div>
@@ -1125,11 +1861,17 @@ export default function App() {
   const resultView = (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,430px)_1fr] items-start">
       <div className="min-w-0">
-        <div className="mx-auto w-full max-w-[430px] rounded-md overflow-hidden" style={{ boxShadow: '0 30px 60px -20px rgba(0,0,0,0.6)' }}>
+        <div
+          className="mx-auto w-full max-w-[430px] rounded-md overflow-hidden"
+          style={{ boxShadow: "0 30px 60px -20px rgba(0,0,0,0.6)" }}
+        >
           <canvas
             ref={stripRef}
             className="block w-full h-auto select-none"
-            style={{ touchAction: stickers.length ? 'none' : 'auto', cursor: stickers.length ? 'grab' : 'default' }}
+            style={{
+              touchAction: stickers.length ? "none" : "auto",
+              cursor: stickers.length ? "grab" : "default",
+            }}
             role="img"
             aria-label="Your photo strip preview"
             onPointerDown={onDown}
@@ -1138,8 +1880,13 @@ export default function App() {
             onPointerCancel={onUp}
           />
         </div>
-        <p className="text-center text-sm mt-3" style={{ color: 'var(--muted)' }}>
-          {stickers.length ? 'Drag a sticker to move it.' : 'Add stickers from the panel, then drag them into place.'}
+        <p
+          className="text-center text-sm mt-3"
+          style={{ color: "var(--muted)" }}
+        >
+          {stickers.length
+            ? "Drag a sticker to move it."
+            : "Add stickers from the panel, then drag them into place."}
         </p>
       </div>
 
@@ -1149,10 +1896,25 @@ export default function App() {
             <Palette size={16} />
             <h2 className="font-display font-bold text-lg">Frame</h2>
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Frame theme">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Frame theme"
+          >
             {FRAMES.map((f) => (
-              <button key={f.id} type="button" className="chip" aria-pressed={frameId === f.id} onClick={() => setFrameId(f.id)}>
-                <span className="dot" style={{ background: `linear-gradient(135deg,${f.bg} 50%,${f.accent} 50%)` }} />
+              <button
+                key={f.id}
+                type="button"
+                className="chip"
+                aria-pressed={frameId === f.id}
+                onClick={() => setFrameId(f.id)}
+              >
+                <span
+                  className="dot"
+                  style={{
+                    background: `linear-gradient(135deg,${f.bg} 50%,${f.accent} 50%)`,
+                  }}
+                />
                 {f.label}
               </button>
             ))}
@@ -1166,10 +1928,20 @@ export default function App() {
               <h2 className="font-display font-bold text-lg">Stickers</h2>
             </div>
             <div className="flex gap-2">
-              <button type="button" className="btn btn-ghost" disabled={!stickers.length} onClick={() => setStickers((l) => l.slice(0, -1))}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={!stickers.length}
+                onClick={() => setStickers((l) => l.slice(0, -1))}
+              >
                 <Undo2 size={15} /> Undo
               </button>
-              <button type="button" className="btn btn-ghost" disabled={!stickers.length} onClick={() => setStickers([])}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={!stickers.length}
+                onClick={() => setStickers([])}
+              >
                 <Trash2 size={15} /> Clear
               </button>
             </div>
@@ -1195,7 +1967,9 @@ export default function App() {
             <Type size={16} />
             <h2 className="font-display font-bold text-lg">Footer text</h2>
           </div>
-          <label className="sr-only" htmlFor="footer-text">Footer text</label>
+          <label className="sr-only" htmlFor="footer-text">
+            Footer text
+          </label>
           <input
             id="footer-text"
             className="field"
@@ -1210,14 +1984,25 @@ export default function App() {
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <button type="button" className="btn btn-primary btn-lg" onClick={exportPng} disabled={imgs.length < 6}>
+          <button
+            type="button"
+            className="btn btn-primary btn-lg"
+            onClick={exportPng}
+            disabled={imgs.length < 6}
+          >
             <Download size={18} /> Download Photo Strip
           </button>
-          <button type="button" className="btn btn-ghost btn-lg" onClick={retake}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-lg"
+            onClick={retake}
+          >
             <RefreshCw size={18} /> Retake Photos
           </button>
         </div>
-        <p className="text-sm" style={{ color: 'var(--muted)' }}>The download is a PNG at 2400 pixels wide.</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          The download is a PNG at 2400 pixels wide.
+        </p>
       </div>
     </div>
   );
@@ -1225,8 +2010,14 @@ export default function App() {
   return (
     <div className="mx-auto w-full max-w-6xl">
       {header}
-      {phase === 'setup' ? setupView : phase === 'booth' ? boothView : resultView}
-      {flashKey > 0 && <div key={flashKey} className="flash" aria-hidden="true" />}
+      {phase === "setup"
+        ? setupView
+        : phase === "booth"
+          ? boothView
+          : resultView}
+      {flashKey > 0 && (
+        <div key={flashKey} className="flash" aria-hidden="true" />
+      )}
       <Toast text={toast} />
     </div>
   );
